@@ -1,0 +1,81 @@
+services:
+  nats:
+    image: nats:latest
+    container_name: nats-server
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: ["-js", "-m", "8222"]
+    volumes:
+      - nats-data:/data
+    networks:
+      - currency-network
+
+  api:
+    build: .
+    container_name: currency-api
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DATABASE_URL=sqlite+aiosqlite:///./data/currency.db
+      - NATS_URL=nats://nats:4222
+      - CURRENCY_API_URL=https://v6.exchangerate-api.com/v6/420ad69df25c5df6f82be95e/latest/USD
+      - TASK_INTERVAL_SECONDS=60
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - nats
+    networks:
+      - currency-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'Waiting for NATS server to start...' && 
+        for i in {1..30}; do
+          if nc -z nats 4222; then
+            echo 'NATS is ready!' && 
+            echo 'Starting API server...' && 
+            python main.py
+            exit 0
+          fi
+          echo 'Waiting for NATS...' $i/30
+          sleep 2
+        done
+        echo 'NATS did not start in time'
+        exit 1
+      "
+
+  subscriber:
+    build: .
+    container_name: nats-subscriber
+    environment:
+      - NATS_URL=nats://nats:4222
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - nats
+      - api
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - currency-network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'Waiting for services...' && 
+        sleep 20 && 
+        echo 'Starting NATS subscriber...' && 
+        python -m scripts.nats_subscriber
+      "
+
+volumes:
+  nats-data:
+
+networks:
+  currency-network:
+    driver: bridge
