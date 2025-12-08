@@ -1,6 +1,8 @@
 import asyncio
 import httpx
 import json
+
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.models import CurrencyRate
@@ -59,6 +61,7 @@ class CurrencyUpdateTask:
             external_data = await self.fetch_external_rates()
 
             if external_data:
+                await self.save_rates_to_db(external_data)
                 await CurrencyService.log_task(
                     self.db,
                     "currency_update",
@@ -100,3 +103,32 @@ class CurrencyUpdateTask:
             except Exception as e:
                 logger.error(f"Error in periodic task: {e}")
                 await asyncio.sleep(10)
+
+    async def save_rates_to_db(self, external_data: dict):
+        try:
+            for currency, rate in external_data["rates"].items():
+                stmt = select(CurrencyRate).where(
+                    CurrencyRate.base_currency == external_data["base_currency"],
+                    CurrencyRate.target_currency == currency
+                )
+                result = await self.db.execute(stmt)
+                existing_rate = result.scalar_one_or_none()
+
+                if existing_rate:
+                    existing_rate.rate = rate
+                    existing_rate.last_updated = datetime.utcnow()
+                else:
+                    new_rate = CurrencyRate(
+                        base_currency=external_data["base_currency"],
+                        target_currency=currency,
+                        rate=rate,
+                        last_updated=datetime.utcnow()
+                    )
+                    self.db.add(new_rate)
+
+            await self.db.commit()
+            logger.info("Currency rates saved/updated in DB")
+
+        except SQLAlchemyError as e:
+            await self.db.rollback()
+            logger.error(f"DB error while saving rates: {e}")
