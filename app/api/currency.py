@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from app.websocket.currency_ws import websocket_manager
 
 from app.db.database import get_db
 from app.schemas.currency import (
@@ -37,13 +38,14 @@ async def get_rate(rate_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/rates", response_model=CurrencyRateInDB, status_code=status.HTTP_201_CREATED)
 async def create_rate(rate_data: CurrencyRateCreate, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select
+
     result = await db.execute(
         select(CurrencyRate).where(
             (CurrencyRate.base_currency == rate_data.base_currency) &
             (CurrencyRate.target_currency == rate_data.target_currency)
         )
     )
-    existing = result.scalar_one_or_none()
+    existing = result.first()
 
     if existing:
         raise HTTPException(
@@ -59,9 +61,32 @@ async def create_rate(rate_data: CurrencyRateCreate, db: AsyncSession = Depends(
             "id": rate.id,
             "base_currency": rate.base_currency,
             "target_currency": rate.target_currency,
-            "rate": rate.rate
+            "rate": rate.rate,
+            "last_updated": rate.last_updated.isoformat() if rate.last_updated else None
         }
     )
+
+    await websocket_manager.broadcast_currency_update({
+        "id": rate.id,
+        "base_currency": rate.base_currency,
+        "target_currency": rate.target_currency,
+        "rate": float(rate.rate),
+        "last_updated": rate.last_updated.isoformat() if rate.last_updated else None,
+        "action": "created"
+    })
+
+    rates = await CurrencyService.get_all_rates(db)
+    rates_data = [
+        {
+            "id": r.id,
+            "base_currency": r.base_currency,
+            "target_currency": r.target_currency,
+            "rate": float(r.rate),
+            "last_updated": r.last_updated.isoformat() if r.last_updated else None
+        }
+        for r in rates
+    ]
+    await websocket_manager.broadcast_rates_list(rates_data)
 
     return rate
 
@@ -90,6 +115,28 @@ async def update_rate(
         }
     )
 
+    await websocket_manager.broadcast_currency_update({
+        "id": rate.id,
+        "base_currency": rate.base_currency,
+        "target_currency": rate.target_currency,
+        "rate": float(rate.rate),
+        "last_updated": rate.last_updated.isoformat() if rate.last_updated else None,
+        "action": "updated"
+    })
+
+    rates = await CurrencyService.get_all_rates(db)
+    rates_data = [
+        {
+            "id": r.id,
+            "base_currency": r.base_currency,
+            "target_currency": r.target_currency,
+            "rate": float(r.rate),
+            "last_updated": r.last_updated.isoformat() if r.last_updated else None
+        }
+        for r in rates
+    ]
+    await websocket_manager.broadcast_rates_list(rates_data)
+
     return rate
 
 
@@ -117,6 +164,26 @@ async def delete_rate(rate_id: int, db: AsyncSession = Depends(get_db)):
             "target_currency": rate.target_currency
         }
     )
+
+    await websocket_manager.broadcast_currency_update({
+        "id": rate.id,
+        "base_currency": rate.base_currency,
+        "target_currency": rate.target_currency,
+        "action": "deleted"
+    })
+
+    rates = await CurrencyService.get_all_rates(db)
+    rates_data = [
+        {
+            "id": r.id,
+            "base_currency": r.base_currency,
+            "target_currency": r.target_currency,
+            "rate": float(r.rate),
+            "last_updated": r.last_updated.isoformat() if r.last_updated else None
+        }
+        for r in rates
+    ]
+    await websocket_manager.broadcast_rates_list(rates_data)
 
 
 @router.get("/task-logs", response_model=List[TaskLogInDB])

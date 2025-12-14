@@ -18,13 +18,13 @@ async def message_handler(msg):
         timestamp = datetime.now().strftime("%H:%M:%S")
         logger.info(f"[{timestamp}] NATS [{msg.subject}]: {json.dumps(data, indent=2)}")
     except Exception as e:
-        logger.error(f"Error processing message: {e}")
+        logger.error(f"Ошибка обработки сообщения: {e}")
 
 
 async def main():
     nats_url = os.getenv("NATS_URL", "nats://localhost:4222")
 
-    logger.info(f"Starting NATS subscriber. Connecting to: {nats_url}")
+    logger.info(f"Запуск подписчика NATS. Подключение к: {nats_url}")
 
     max_retries = 10
     retry_delay = 5
@@ -38,25 +38,25 @@ async def main():
                 max_reconnect_attempts=-1
             )
 
-            logger.info(f"Successfully connected to NATS server")
+            logger.info("Успешно подключено к серверу NATS")
 
             await nc.subscribe("currency.updates", cb=message_handler)
             await nc.subscribe("currency.*", cb=message_handler)
 
-            logger.info("Subscribed to channels: currency.updates, currency.*")
-            logger.info("Listening for messages...")
+            logger.info("Подписано на каналы: currency.updates, currency.*")
+            logger.info("Ожидание сообщений...")
 
             while True:
                 await asyncio.sleep(1)
 
         except Exception as e:
-            logger.error(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
+            logger.error(f"Попытка {attempt + 1}/{max_retries} не удалась: {e}")
 
             if attempt < max_retries - 1:
-                logger.info(f"Retrying in {retry_delay} seconds...")
+                logger.info(f"Повтор через {retry_delay} секунд...")
                 await asyncio.sleep(retry_delay)
             else:
-                logger.error("Max retries reached. Exiting.")
+                logger.error("Достигнуто максимальное число попыток. Выход.")
                 break
 
 
@@ -64,6 +64,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Subscriber stopped")
+        logger.info("Подписчик остановлен")
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.error(f"Фатальная ошибка: {e}")

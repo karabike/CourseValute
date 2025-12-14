@@ -45,7 +45,7 @@ class CurrencyService:
             )
             return result.scalar_one_or_none()
         except SQLAlchemyError as e:
-            logger.error(f"Error updating rate: {e}")
+            logger.error(f"Ошибка при обновлении курса: {e}")
             await db.rollback()
             return None
 
@@ -58,7 +58,7 @@ class CurrencyService:
             await db.commit()
             return True
         except SQLAlchemyError as e:
-            logger.error(f"Error deleting rate: {e}")
+            logger.error(f"Ошибка при удалении курса: {e}")
             await db.rollback()
             return False
 

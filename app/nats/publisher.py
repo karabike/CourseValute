@@ -16,9 +16,9 @@ class NATSPublisher:
         try:
             await self.nc.connect(servers=[settings.NATS_URL])
             self.is_connected = True
-            logger.info(f"Connected to NATS at {settings.NATS_URL}")
+            logger.info(f"Подключено к NATS по адресу {settings.NATS_URL}")
         except Exception as e:
-            logger.error(f"Failed to connect to NATS: {e}")
+            logger.error(f"Не удалось подключиться к NATS: {e}")
             self.is_connected = False
 
     async def publish_currency_update(self, action: str, currency_data: dict):
@@ -36,9 +36,9 @@ class NATSPublisher:
                 settings.NATS_CHANNEL,
                 json.dumps(message).encode()
             )
-            logger.info(f"Published to NATS: {action} - {currency_data.get('target_currency')}")
+            logger.info(f"Опубликовано в NATS: {action} - {currency_data.get('target_currency')}")
         except Exception as e:
-            logger.error(f"Failed to publish to NATS: {e}")
+            logger.error(f"Не удалось опубликовать в NATS: {e}")
 
     async def close(self):
         await self.nc.close()

@@ -25,32 +25,32 @@ background_task_obj = None
 async def lifespan(app: FastAPI):
     global background_task_obj
 
-    logger.info("Starting up Currency Monitor API...")
+    logger.info("Запуск API мониторинга валют...")
 
     await init_db()
-    logger.info("Database initialized")
+    logger.info("База данных инициализирована")
 
     await nats_publisher.connect()
-    logger.info("NATS publisher connected")
+    logger.info("Публикатор NATS подключен")
 
     db = AsyncSessionLocal()
 
     try:
         background_task_obj = CurrencyUpdateTask(db)
         task = asyncio.create_task(background_task_obj.run_periodically())
-        logger.info("Background currency update task started")
+        logger.info("Фоновая задача обновления курсов запущена")
 
         yield
 
     finally:
-        logger.info("Shutting down...")
+        logger.info("Завершение работы...")
 
         if background_task_obj:
             background_task_obj.is_running = False
 
         await db.close()
         await nats_publisher.close()
-        logger.info("Shutdown complete")
+        logger.info("Завершение работы выполнено")
 
 
 app = FastAPI(
