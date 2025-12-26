@@ -54,7 +54,7 @@ class CurrencyUpdateTask:
                 self.db,
                 "currency_update",
                 "started",
-                "Fetching currency rates"
+                "Задача обновления курсов запущена"
             )
 
             external_data = await self.fetch_external_rates()

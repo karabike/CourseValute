@@ -30,7 +30,7 @@ async def get_rate(rate_id: int, db: AsyncSession = Depends(get_db)):
     if not rate:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Currency rate not found"
+            detail="Курс валюты не найден"
         )
     return rate
 
@@ -50,7 +50,7 @@ async def create_rate(rate_data: CurrencyRateCreate, db: AsyncSession = Depends(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Currency rate already exists"
+            detail="Курс для данной валютной пары уже существует"
         )
 
     rate = await CurrencyService.create_rate(db, rate_data)
@@ -101,7 +101,7 @@ async def update_rate(
     if not rate:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Currency rate not found"
+            detail="Курс валюты не найден"
         )
 
     await nats_publisher.publish_currency_update(
@@ -146,14 +146,14 @@ async def delete_rate(rate_id: int, db: AsyncSession = Depends(get_db)):
     if not rate:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Currency rate not found"
+            detail="Курс валюты не найден"
         )
 
     success = await CurrencyService.delete_rate(db, rate_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete currency rate"
+            detail="Не удалось удалить курс валюты"
         )
 
     await nats_publisher.publish_currency_update(

@@ -18,7 +18,7 @@ async def run_currency_task(
     if task.is_running:
         raise HTTPException(
             status_code=400,
-            detail="Task is already running"
+            detail="Задача уже запущена"
         )
 
     background_tasks.add_task(task.run_task)
@@ -27,11 +27,10 @@ async def run_currency_task(
         db,
         "currency_update",
         "manual_start",
-        "Currency update task manually triggered"
+        "Задача обновления курсов запущена вручную"
     )
 
-    return {"message": "Currency update task started manually"}
-
+    return {"message": "Задача обновления курсов запущена вручную"}
 
 @router.get("/status")
 async def get_task_status():
